@@ -17,3 +17,5 @@ rich (--explain output), pytest, ruff
 - Never install real packages during tests
 - Run `pytest` and `ruff check` before finishing any task
 - Keep each change small; explain what changed at the end
+
+- Never add Co-Authored-By or "Generated with Claude Code" lines to commits or PRs
