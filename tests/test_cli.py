@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
 from slopsentry.cli import app
-from tests.conftest import EXISTING, MISSING, UNREACHABLE
+from tests.conftest import EXISTING, FRESH, MISSING, UNREACHABLE
 
 runner = CliRunner()
 
@@ -30,3 +30,11 @@ def test_unreachable_registry_blocks_with_strict():
     result = runner.invoke(app, ["check", "--strict", UNREACHABLE])
     assert result.exit_code == 2
     assert "ERROR" in result.output
+
+
+def test_fresh_package_warns_without_failing():
+    result = runner.invoke(app, ["check", FRESH])
+    assert result.exit_code == 0
+    assert "PASS" in result.output
+    assert "WARN" in result.output
+    assert "first release 5 days ago" in result.output

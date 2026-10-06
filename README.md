@@ -22,7 +22,9 @@ python3.12 -m venv .venv
 slopsentry check requests
 ```
 
-Currently `check` verifies that the package exists on PyPI.
+`check` verifies that the package exists on PyPI, then warns if it looks freshly
+registered: first release under 90 days ago, two or fewer releases, or no homepage or
+repository link. Warnings are informational for now and don't change the exit code.
 
 | Result | Meaning                       | Exit code |
 | ------ | ----------------------------- | --------- |
