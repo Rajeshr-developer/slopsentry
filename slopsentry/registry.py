@@ -1,0 +1,47 @@
+"""Registry API clients (PyPI for now), with a per-client cache."""
+
+import re
+from typing import Any
+
+import httpx
+
+PYPI_URL = "https://pypi.org/pypi/{name}/json"
+
+
+def normalize_name(name: str) -> str:
+    """Normalise a PyPI project name per PEP 503: lowercase, runs of -_. become -."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+class RegistryError(Exception):
+    """The registry could not be reached or returned an unexpected response."""
+
+
+class PyPIClient:
+    def __init__(self, http: httpx.AsyncClient | None = None) -> None:
+        self._http = http or httpx.AsyncClient(timeout=10.0, follow_redirects=True)
+        self._cache: dict[str, dict[str, Any] | None] = {}
+
+    async def get_project(self, name: str) -> dict[str, Any] | None:
+        """Return the project's JSON metadata, or None if it does not exist."""
+        key = normalize_name(name)
+        if key in self._cache:
+            return self._cache[key]
+
+        try:
+            response = await self._http.get(PYPI_URL.format(name=key))
+        except httpx.HTTPError as exc:
+            raise RegistryError(f"could not reach PyPI: {exc}") from exc
+
+        if response.status_code == 404:
+            data = None
+        elif response.status_code == 200:
+            data = response.json()
+        else:
+            raise RegistryError(f"PyPI returned HTTP {response.status_code}")
+
+        self._cache[key] = data
+        return data
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
