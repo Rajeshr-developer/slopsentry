@@ -10,6 +10,9 @@ EXISTING = "requests"
 MISSING = "reqeusts-pro"
 UNREACHABLE = "flaky-pkg"
 FRESH = "fresh-pkg"
+GARBLED = "garbled-pkg"
+WRONG_SHAPE = "wrong-shape"
+NO_HISTORY = "no-history"
 
 
 def established(name: str) -> dict:
@@ -33,14 +36,30 @@ def fresh(name: str) -> dict:
     }
 
 
+def no_history(name: str) -> dict:
+    """An established package whose response omits the deprecated `releases` key."""
+    project = established(name)
+    del project["releases"]
+    return project
+
+
 # Mocked PyPI only knows normalised names, so un-normalised lookups would 404.
-KNOWN = {"requests": established, "typing-extensions": established, FRESH: fresh}
+KNOWN = {
+    "requests": established,
+    "typing-extensions": established,
+    FRESH: fresh,
+    NO_HISTORY: no_history,
+}
 
 
 def pypi_handler(request: httpx.Request) -> httpx.Response:
     name = request.url.path.removeprefix("/pypi/").removesuffix("/json")
     if name in KNOWN:
         return httpx.Response(200, json=KNOWN[name](name))
+    if name == GARBLED:
+        return httpx.Response(200, text="<html>Service temporarily unavailable</html>")
+    if name == WRONG_SHAPE:
+        return httpx.Response(200, json=["not", "a", "project"])
     if name == MISSING:
         return httpx.Response(404, json={"message": "Not Found"})
     if name == UNREACHABLE:

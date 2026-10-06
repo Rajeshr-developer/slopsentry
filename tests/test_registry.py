@@ -2,7 +2,8 @@ import asyncio
 
 import pytest
 
-from slopsentry.registry import normalize_name
+from slopsentry.registry import RegistryError, normalize_name
+from tests.conftest import GARBLED, WRONG_SHAPE
 
 
 @pytest.mark.parametrize(
@@ -42,3 +43,19 @@ def test_equivalent_names_share_cache(make_client):
 
     first, second = asyncio.run(go())
     assert first is second
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [(GARBLED, "not valid JSON"), (WRONG_SHAPE, "unexpected JSON shape")],
+)
+def test_bad_200_response_raises_registry_error(make_client, name, message):
+    async def go():
+        client = make_client()
+        try:
+            await client.get_project(name)
+        finally:
+            await client.aclose()
+
+    with pytest.raises(RegistryError, match=message):
+        asyncio.run(go())

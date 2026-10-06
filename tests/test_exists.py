@@ -1,7 +1,7 @@
 import asyncio
 
 from slopsentry.checks.exists import MISSING_POINTS, check_exists
-from tests.conftest import EXISTING, MISSING, UNREACHABLE
+from tests.conftest import EXISTING, GARBLED, MISSING, UNREACHABLE
 
 
 def run(name, client):
@@ -26,4 +26,11 @@ def test_unreachable_registry_is_error(make_client):
     status, detail, points = run(UNREACHABLE, make_client())
     assert status == "error"
     assert "could not reach PyPI" in detail
+    assert points == 0
+
+
+def test_non_json_response_is_error(make_client):
+    status, detail, points = run(GARBLED, make_client())
+    assert status == "error"
+    assert "not valid JSON" in detail
     assert points == 0

@@ -36,7 +36,12 @@ class PyPIClient:
         if response.status_code == 404:
             data = None
         elif response.status_code == 200:
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise RegistryError("PyPI returned a response that is not valid JSON") from exc
+            if not isinstance(data, dict):
+                raise RegistryError("PyPI returned an unexpected JSON shape")
         else:
             raise RegistryError(f"PyPI returned HTTP {response.status_code}")
 

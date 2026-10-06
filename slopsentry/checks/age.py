@@ -34,6 +34,9 @@ async def check_age(name: str, client: PyPIClient, now: datetime | None = None) 
         return ("error", str(exc), 0)
     if project is None:
         return ("skip", "not found on PyPI", 0)
+    # PyPI has deprecated `releases` in this endpoint. Absent means unknown, not new.
+    if "releases" not in project:
+        return ("skip", "release history unavailable", 0)
 
     now = now or datetime.now(UTC)
     findings: list[str] = []

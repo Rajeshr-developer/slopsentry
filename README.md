@@ -31,6 +31,10 @@ repository link. Warnings are informational for now and don't change the exit co
 | PASS   | package exists on PyPI        | 0         |
 | FAIL   | package not found on PyPI     | 1         |
 | WARN   | PyPI could not be reached     | 0 (2 with `--strict`) |
+| ERROR  | empty or invalid package spec | 2         |
+
+`PACKAGE` can be a full requirement: `requests==2.31.0` and `requests[socks]` are
+checked as `requests`. Invalid input is rejected before any request is made.
 
 Names are normalised per PEP 503, so `Requests` and `typing_extensions` match
 `requests` and `typing-extensions`.

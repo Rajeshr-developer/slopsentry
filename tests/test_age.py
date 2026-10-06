@@ -2,7 +2,7 @@ import asyncio
 from datetime import UTC, datetime
 
 from slopsentry.checks.age import check_age
-from tests.conftest import EXISTING, FRESH, MISSING, UNREACHABLE
+from tests.conftest import EXISTING, FRESH, MISSING, NO_HISTORY, UNREACHABLE
 
 
 def run(name, client, now=None):
@@ -45,3 +45,7 @@ def test_missing_package_is_skipped(make_client):
 
 def test_unreachable_registry_is_error(make_client):
     assert run(UNREACHABLE, make_client())[0] == "error"
+
+
+def test_missing_release_history_is_neutral(make_client):
+    assert run(NO_HISTORY, make_client()) == ("skip", "release history unavailable", 0)
