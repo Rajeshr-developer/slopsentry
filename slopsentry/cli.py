@@ -1,6 +1,8 @@
 """SlopSentry command-line interface."""
 
 import asyncio
+import json
+import sys
 from collections.abc import Callable
 
 import typer
@@ -8,6 +10,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from slopsentry import hook as hook_mod
 from slopsentry.registry import PyPIClient
 from slopsentry.scoring import BLOCK_AT, WARN_AT, Report, score
 from slopsentry.spec import InvalidPackageSpec, parse_package_name
@@ -16,8 +19,13 @@ app = typer.Typer(help="Check packages for slopsquatting before they are install
 console = Console()
 err_console = Console(stderr=True)
 
-# Tests replace this to inject a client backed by a mock transport.
+# Tests replace these to inject a client backed by a mock transport.
 client_factory: Callable[[], PyPIClient] = PyPIClient
+
+
+def hook_client_factory() -> PyPIClient:
+    return PyPIClient(timeout=hook_mod.HOOK_TIMEOUT)
+
 
 VERDICT_EXIT = {"pass": 0, "warn": 0, "block": 1}
 STRICT_ERROR_EXIT = 2
@@ -95,3 +103,21 @@ def check(
     _print_summary(report, strict_error, with_reasons=not explain)
 
     raise typer.Exit(STRICT_ERROR_EXIT if strict_error else VERDICT_EXIT[report.verdict])
+
+
+@app.command()
+def hook(
+    debug: bool = typer.Option(False, "--debug", help="Also print swallowed exceptions to stderr."),
+) -> None:
+    """Claude Code PreToolUse hook: read the event on stdin, print a decision as JSON.
+
+    Always exits 0. Warn asks the user, block denies, anything else is allowed silently.
+    """
+    try:
+        output = hook_mod.run_hook(sys.stdin.read(), hook_client_factory)
+    except Exception:
+        hook_mod.log_exception(debug)
+        output = None
+    if output is not None:
+        sys.stdout.write(json.dumps(output) + "\n")
+    raise typer.Exit(0)

@@ -83,4 +83,14 @@ def no_network(monkeypatch, make_client):
         raise AssertionError("real network access attempted in tests")
 
     monkeypatch.setattr(cli, "client_factory", make_client)
+    monkeypatch.setattr(cli, "hook_client_factory", make_client)
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", blocked)
+
+
+@pytest.fixture(autouse=True)
+def fake_home(monkeypatch, tmp_path):
+    """Point HOME at a temp dir so nothing (e.g. the hook log) touches the real one."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    return home

@@ -18,8 +18,8 @@ class RegistryError(Exception):
 
 
 class PyPIClient:
-    def __init__(self, http: httpx.AsyncClient | None = None) -> None:
-        self._http = http or httpx.AsyncClient(timeout=10.0, follow_redirects=True)
+    def __init__(self, http: httpx.AsyncClient | None = None, timeout: float = 10.0) -> None:
+        self._http = http or httpx.AsyncClient(timeout=timeout, follow_redirects=True)
         self._cache: dict[str, dict[str, Any] | None] = {}
         # Errors are remembered too, so several checks don't each wait out the same outage.
         self._errors: dict[str, RegistryError] = {}
