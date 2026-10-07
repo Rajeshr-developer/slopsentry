@@ -1,45 +1,65 @@
 import pytest
 from typer.testing import CliRunner
 
-from slopsentry import cli
+from slopsentry import cli, scoring
 from slopsentry.cli import app
 from tests.conftest import EXISTING, FRESH, GARBLED, MISSING, UNREACHABLE
 
-runner = CliRunner()
+# Wide enough that rich doesn't wrap the lines under test.
+runner = CliRunner(env={"COLUMNS": "200"})
 
 
 def test_check_existing_package():
     result = runner.invoke(app, ["check", EXISTING])
     assert result.exit_code == 0
-    assert "PASS" in result.output
-    assert "found on PyPI" in result.output
+    assert "PASS requests: score 0" in result.output
+    assert "  - " not in result.output  # no reasons for a pass
 
 
-def test_check_missing_package():
+def test_check_missing_package_blocks():
     result = runner.invoke(app, ["check", MISSING])
     assert result.exit_code == 1
-    assert "FAIL" in result.output
-    assert "not found on PyPI" in result.output
+    assert "BLOCK" in result.output
+    assert "exists: not found on PyPI (+100)" in result.output
 
 
 def test_unreachable_registry_warns_by_default():
     result = runner.invoke(app, ["check", UNREACHABLE])
     assert result.exit_code == 0
     assert "WARN" in result.output
+    assert "use --strict to block" in result.output
+    # exists and age both hit the same outage; the reason is shown once.
+    assert result.output.count("could not reach PyPI") == 1
 
 
-def test_unreachable_registry_blocks_with_strict():
+def test_unreachable_registry_errors_with_strict():
     result = runner.invoke(app, ["check", "--strict", UNREACHABLE])
     assert result.exit_code == 2
     assert "ERROR" in result.output
+    assert "could not be verified (--strict)" in result.output
 
 
-def test_fresh_package_warns_without_failing():
-    result = runner.invoke(app, ["check", FRESH])
+def test_strict_has_no_effect_when_registry_is_reachable():
+    result = runner.invoke(app, ["check", "--strict", EXISTING])
     assert result.exit_code == 0
     assert "PASS" in result.output
-    assert "WARN" in result.output
+
+
+def test_fresh_package_blocks_with_reasons():
+    result = runner.invoke(app, ["check", FRESH])
+    assert result.exit_code == 1
+    assert "BLOCK fresh-pkg: score 80" in result.output
     assert "first release 5 days ago" in result.output
+
+
+def test_explain_prints_table_total_and_verdict():
+    result = runner.invoke(app, ["check", "--explain", FRESH])
+    assert result.exit_code == 1
+    for text in ("Check", "Status", "Detail", "Points", "exists", "age", "pass", "warn"):
+        assert text in result.output
+    assert "Total: 80 points (warn at 30, block at 70)" in result.output
+    assert "BLOCK fresh-pkg: score 80" in result.output
+    assert "  - " not in result.output  # the table replaces the reasons list
 
 
 @pytest.mark.parametrize("spec", ["requests==2.31.0", "requests[socks]", "Requests[socks]>=2"])
@@ -69,3 +89,21 @@ def test_non_json_response_warns_by_default():
     assert result.exit_code == 0
     assert "WARN" in result.output
     assert "not valid JSON" in result.output
+
+
+def fixed_points(points):
+    async def check(name, client):
+        return ("warn", f"synthetic {points}", points)
+
+    return check
+
+
+@pytest.mark.parametrize(
+    ("points", "label", "exit_code"),
+    [(29, "PASS", 0), (30, "WARN", 0), (69, "WARN", 0), (70, "BLOCK", 1)],
+)
+def test_verdict_boundaries_through_cli(monkeypatch, points, label, exit_code):
+    monkeypatch.setattr(scoring, "ALL_CHECKS", [("fake", fixed_points(points))])
+    result = runner.invoke(app, ["check", EXISTING])
+    assert result.exit_code == exit_code
+    assert f"{label} requests: score {points}" in result.output

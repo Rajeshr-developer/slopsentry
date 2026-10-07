@@ -6,11 +6,10 @@ from collections.abc import Callable
 import typer
 from rich.console import Console
 from rich.markup import escape
+from rich.table import Table
 
-from slopsentry.checks import CheckResult
-from slopsentry.checks.age import check_age
-from slopsentry.checks.exists import check_exists
 from slopsentry.registry import PyPIClient
+from slopsentry.scoring import BLOCK_AT, WARN_AT, Report, score
 from slopsentry.spec import InvalidPackageSpec, parse_package_name
 
 app = typer.Typer(help="Check packages for slopsquatting before they are installed.")
@@ -20,21 +19,48 @@ err_console = Console(stderr=True)
 # Tests replace this to inject a client backed by a mock transport.
 client_factory: Callable[[], PyPIClient] = PyPIClient
 
-# Warnings don't affect the exit code until scoring lands.
-EXIT_CODES = {"pass": 0, "warn": 0, "skip": 0, "fail": 1, "error": 2}
-STYLES = {"pass": "green", "warn": "yellow", "skip": "dim", "fail": "red", "error": "yellow"}
+VERDICT_EXIT = {"pass": 0, "warn": 0, "block": 1}
+STRICT_ERROR_EXIT = 2
 INVALID_INPUT_EXIT = 2
 
+VERDICT_STYLES = {"pass": "green", "warn": "yellow", "block": "red", "error": "red"}
+STATUS_STYLES = {"pass": "green", "warn": "yellow", "skip": "dim", "fail": "red", "error": "yellow"}
 
-async def _run_checks(package: str) -> list[CheckResult]:
+
+async def _score(package: str) -> Report:
     client = client_factory()
     try:
-        results = [await check_exists(package, client)]
-        if results[0][0] == "pass":
-            results.append(await check_age(package, client))
-        return results
+        return await score(package, client)
     finally:
         await client.aclose()
+
+
+def _print_table(report: Report) -> None:
+    table = Table(title=f"SlopSentry: {escape(report.package)}")
+    table.add_column("Check")
+    table.add_column("Status")
+    table.add_column("Detail")
+    table.add_column("Points", justify="right")
+    for r in report.results:
+        style = STATUS_STYLES[r.status]
+        table.add_row(r.check, f"[{style}]{r.status}[/{style}]", escape(r.detail), str(r.points))
+    console.print(table)
+    console.print(f"Total: {report.total} points (warn at {WARN_AT}, block at {BLOCK_AT})")
+
+
+def _print_summary(report: Report, strict_error: bool, with_reasons: bool) -> None:
+    label = "error" if strict_error else report.verdict
+    style = VERDICT_STYLES[label]
+    line = f"[{style}]{label.upper()}[/{style}] {escape(report.package)}: score {report.total}"
+    if strict_error:
+        line += ", could not be verified (--strict)"
+    elif report.has_errors:
+        line += ", could not be fully verified (allowing; use --strict to block)"
+    console.print(line)
+
+    if with_reasons and label != "pass":
+        for r in report.reasons:
+            console.print(f"  - {r.check}: {escape(r.detail)} (+{r.points})")
 
 
 @app.callback()
@@ -50,23 +76,22 @@ def check(
     strict: bool = typer.Option(
         False, "--strict", help="Exit 2 instead of warning when the registry is unreachable."
     ),
+    explain: bool = typer.Option(
+        False, "--explain", help="Show every check's status, detail and points."
+    ),
 ) -> None:
-    """Check that PACKAGE exists on PyPI and doesn't look freshly registered."""
+    """Score PACKAGE for slopsquatting risk: pass, warn or block."""
     try:
         package = parse_package_name(spec)
     except InvalidPackageSpec as exc:
         err_console.print(f"[red]ERROR[/red] {escape(str(exc))}", highlight=False)
         raise typer.Exit(INVALID_INPUT_EXIT) from None
 
-    exit_code = 0
-    for status, detail, _points in asyncio.run(_run_checks(package)):
-        if status == "error" and not strict:
-            console.print(
-                f"[yellow]WARN[/yellow] {package}: {escape(detail)} "
-                "(allowing; use --strict to block)"
-            )
-            continue
-        style = STYLES[status]
-        console.print(f"[{style}]{status.upper()}[/{style}] {package}: {escape(detail)}")
-        exit_code = max(exit_code, EXIT_CODES[status])
-    raise typer.Exit(exit_code)
+    report = asyncio.run(_score(package))
+    strict_error = strict and report.has_errors
+
+    if explain:
+        _print_table(report)
+    _print_summary(report, strict_error, with_reasons=not explain)
+
+    raise typer.Exit(STRICT_ERROR_EXIT if strict_error else VERDICT_EXIT[report.verdict])

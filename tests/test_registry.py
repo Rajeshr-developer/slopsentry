@@ -1,8 +1,9 @@
 import asyncio
 
+import httpx
 import pytest
 
-from slopsentry.registry import RegistryError, normalize_name
+from slopsentry.registry import PyPIClient, RegistryError, normalize_name
 from tests.conftest import GARBLED, WRONG_SHAPE
 
 
@@ -59,3 +60,23 @@ def test_bad_200_response_raises_registry_error(make_client, name, message):
 
     with pytest.raises(RegistryError, match=message):
         asyncio.run(go())
+
+
+def test_registry_error_is_cached_per_run():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url)
+        raise httpx.ConnectError("down", request=request)
+
+    async def go():
+        client = PyPIClient(httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        try:
+            for _ in range(2):
+                with pytest.raises(RegistryError):
+                    await client.get_project("anything")
+        finally:
+            await client.aclose()
+
+    asyncio.run(go())
+    assert len(calls) == 1
