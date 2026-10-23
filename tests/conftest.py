@@ -13,6 +13,9 @@ FRESH = "fresh-pkg"
 GARBLED = "garbled-pkg"
 WRONG_SHAPE = "wrong-shape"
 NO_HISTORY = "no-history"
+# Typos of the popular `requests`: one registered for years, one registered days ago.
+ESTABLISHED_LOOKALIKE = "reqeusts"
+FRESH_LOOKALIKE = "requets"
 
 
 def established(name: str) -> dict:
@@ -49,6 +52,8 @@ KNOWN = {
     "typing-extensions": established,
     FRESH: fresh,
     NO_HISTORY: no_history,
+    ESTABLISHED_LOOKALIKE: established,
+    FRESH_LOOKALIKE: fresh,
 }
 
 

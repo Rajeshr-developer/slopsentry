@@ -24,12 +24,14 @@ slopsentry check requests
 
 `check` runs every check, adds up the risk points, and gives a verdict:
 
-| Check  | Flags                                                   | Points |
-| ------ | ------------------------------------------------------- | ------ |
-| exists | package not found on PyPI                               | 100    |
-| age    | first release under 90 days ago, or no released files   | 40     |
-| age    | two or fewer releases                                   | 20     |
-| age    | no homepage or repository link                          | 20     |
+| Check     | Flags                                                 | Points |
+| --------- | ----------------------------------------------------- | ------ |
+| exists    | package not found on PyPI                             | 100    |
+| age       | first release under 90 days ago, or no released files | 40     |
+| age       | two or fewer releases                                 | 20     |
+| age       | no homepage or repository link                        | 20     |
+| lookalike | resembles a popular package (see below)               | 50     |
+| lookalike | resembles one, but the age check passes cleanly       | 15     |
 
 | Verdict | Total points | Exit code |
 | ------- | ------------ | --------- |
@@ -46,6 +48,37 @@ BLOCK. With `--explain` it prints a table of every check's status, detail and po
 
 ```sh
 slopsentry check --explain requests
+```
+
+### Lookalike check
+
+The lookalike check compares the name with the 5,000 most-downloaded PyPI packages,
+bundled in `slopsentry/data/top_pypi.json`. Popular packages are never flagged, so
+`requests` passes even though it's close to other names. A name is flagged if:
+
+- it differs from a popular name only by separators (`django-rest-framework` vs
+  `djangorestframework`),
+- it adds or removes `py-`, `python-`, `-py`, `-python` or `-lib` (`python-requests`,
+  `pandas-py`), or
+- it's within Damerau-Levenshtein distance 1 of a popular name, or 2 for names longer
+  than 10 characters (`reqeusts`, `numpyy`).
+
+Two guards cut false positives on legitimate packages:
+
+1. **Short names:** names under 5 characters get no edit-distance matching, since almost
+   every short name is one edit from another (`sax`/`six`, `od`/`id`).
+2. **Package families:** a distance-2 match is ignored when the names differ in exactly
+   one whole `-` segment, such as `mypy-boto3-emr` and `mypy-boto3-ec2`.
+
+The reason names the package it resembles, e.g. "looks like requests". If the package is
+established (the age check passes cleanly), the match adds only 15 points and reads
+"looks like requests (established package)": shown in `--explain`, but not enough to warn
+by itself. A new or thin lookalike adds 50, so one that is also brand new blocks.
+
+To refresh the bundled list (it needs the network, or a downloaded copy of the dataset):
+
+```sh
+.venv/bin/python scripts/update_top_packages.py
 ```
 
 `PACKAGE` can be a full requirement: `requests==2.31.0` and `requests[socks]` are
@@ -118,3 +151,12 @@ The hook reads the command text; it doesn't run a shell. These installs get past
 - **`--extra-index-url` dependency confusion**: commands with an extra index are skipped
   entirely. pip picks the highest version across all indexes, so an attacker can publish
   your private package's name on PyPI with a higher version, and it wins.
+
+## Data attribution
+
+`slopsentry/data/top_pypi.json` is derived from
+[Top PyPI Packages](https://hugovk.dev/top-pypi-packages/) by Hugo van Kemenade and
+contributors ([DOI 10.5281/zenodo.23082845](https://doi.org/10.5281/zenodo.23082845)),
+release 2026.10.1, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changes: kept the top 5,000
+names in download order, normalised them per PEP 503, and removed the download counts.

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from slopsentry.checks import CheckResult
 from slopsentry.checks.age import check_age
 from slopsentry.checks.exists import check_exists
+from slopsentry.checks.lookalike import check_lookalike
 from slopsentry.registry import PyPIClient
 
 # Verdict thresholds. Tune here: total < WARN_AT passes, total >= BLOCK_AT blocks.
@@ -17,6 +18,7 @@ Check = Callable[[str, PyPIClient], Awaitable[CheckResult]]
 ALL_CHECKS: list[tuple[str, Check]] = [
     ("exists", check_exists),
     ("age", check_age),
+    ("lookalike", check_lookalike),
 ]
 
 REASON_STATUSES = ("warn", "fail", "error")

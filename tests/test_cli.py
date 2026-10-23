@@ -3,7 +3,15 @@ from typer.testing import CliRunner
 
 from slopsentry import cli, scoring
 from slopsentry.cli import app
-from tests.conftest import EXISTING, FRESH, GARBLED, MISSING, UNREACHABLE
+from tests.conftest import (
+    ESTABLISHED_LOOKALIKE,
+    EXISTING,
+    FRESH,
+    FRESH_LOOKALIKE,
+    GARBLED,
+    MISSING,
+    UNREACHABLE,
+)
 
 # Wide enough that rich doesn't wrap the lines under test.
 runner = CliRunner(env={"COLUMNS": "200"})
@@ -107,3 +115,22 @@ def test_verdict_boundaries_through_cli(monkeypatch, points, label, exit_code):
     result = runner.invoke(app, ["check", EXISTING])
     assert result.exit_code == exit_code
     assert f"{label} requests: score {points}" in result.output
+
+
+def test_established_lookalike_scores_15_and_passes():
+    result = runner.invoke(app, ["check", ESTABLISHED_LOOKALIKE])
+    assert result.exit_code == 0
+    assert "PASS reqeusts: score 15" in result.output
+
+    explained = runner.invoke(app, ["check", "--explain", ESTABLISHED_LOOKALIKE])
+    assert explained.exit_code == 0
+    assert "looks like requests (established package)" in explained.output
+    assert "15" in explained.output
+
+
+def test_lookalike_released_5_days_ago_blocks():
+    result = runner.invoke(app, ["check", FRESH_LOOKALIKE])
+    assert result.exit_code == 1
+    # exists 0 + age 80 (new, 1 release, no links) + lookalike 50
+    assert "BLOCK requets: score 130" in result.output
+    assert "lookalike: looks like requests (+50)" in result.output

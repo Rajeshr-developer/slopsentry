@@ -5,7 +5,14 @@ from typer.testing import CliRunner
 
 from slopsentry import cli, hook
 from slopsentry.scoring import NamedResult, Report
-from tests.conftest import EXISTING, FRESH, MISSING, UNREACHABLE
+from tests.conftest import (
+    ESTABLISHED_LOOKALIKE,
+    EXISTING,
+    FRESH,
+    FRESH_LOOKALIKE,
+    MISSING,
+    UNREACHABLE,
+)
 
 runner = CliRunner()
 
@@ -196,3 +203,13 @@ def test_unwritable_log_still_exits_0(monkeypatch, fake_home):
     (fake_home / ".slopsentry").write_text("a file where the log directory should be")
     monkeypatch.setattr(hook, "score", boom)
     assert decision(run_hook(event(f"pip install {EXISTING}"))) is None
+
+
+def test_fresh_lookalike_denied_naming_the_real_package():
+    out = decision(run_hook(event(f"pip install {FRESH_LOOKALIKE}")))
+    assert out["permissionDecision"] == "deny"
+    assert "lookalike: looks like requests" in out["permissionDecisionReason"]
+
+
+def test_established_lookalike_allowed_silently():
+    assert decision(run_hook(event(f"pip install {ESTABLISHED_LOOKALIKE}"))) is None
