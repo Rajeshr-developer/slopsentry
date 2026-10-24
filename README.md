@@ -3,16 +3,33 @@
 SlopSentry checks packages for **slopsquatting** before you install them: AI-hallucinated
 package names and malicious lookalikes that attackers register to catch them.
 
+<!-- TODO: demo GIF of the Claude Code hook blocking a hallucinated package -->
+<!-- ![SlopSentry blocking a hallucinated package in Claude Code](docs/demo.gif) -->
+
+> **Alpha (0.1.0):** only Python package installs from PyPI are checked. npm and other
+> ecosystems aren't supported yet.
+
 ## Install
 
+SlopSentry needs Python 3.10 or newer. Install it as a standalone tool with
+[pipx](https://pipx.pypa.io/):
+
 ```sh
-pip install slopsentry
+pipx install slopsentry
 ```
+
+or run it without installing, using [uv](https://docs.astral.sh/uv/):
+
+```sh
+uvx slopsentry check requests
+```
+
+`pip install slopsentry` works too.
 
 For development:
 
 ```sh
-python3.12 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
@@ -109,33 +126,56 @@ It recognises `pip install` (also `pip3`, `python -m pip`, `python3 -m pip`), `u
 and after `sudo`, `env` or `VAR=value` prefixes. Flags, local paths, URLs, `-e` and `-r`
 arguments are skipped. Commands that use a custom index (`--index-url`, `-i`,
 `--extra-index-url`, `-f`/`--find-links`, uv's `--index`/`--default-index`, poetry's
-`--source`) aren't checked, since their packages may not be on PyPI. npm isn't
-supported yet.
+`--source`) aren't checked, since their packages may not be on PyPI. In 0.1.0 only
+Python installs are checked; `npm install`, `yarn add` and other ecosystems pass through
+unchecked.
 
 The hook fails open: it always exits 0. Commands it can't parse, registry errors (5 second
 timeout) and its own crashes all allow the command. Crashes are appended with a timestamp
 to `~/.slopsentry/hook.log`; add `--debug` to also print them to stderr.
 
-To use it in a project, add this to `.claude/settings.json` (this repo already does):
+### Setting up the hook
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.venv/bin/slopsentry hook || true",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+1. Install SlopSentry so `slopsentry` is on your `PATH`:
+
+   ```sh
+   pipx install slopsentry
+   slopsentry --help
+   ```
+
+2. Add the hook to `.claude/settings.json` in a project, or to `~/.claude/settings.json`
+   to cover every project:
+
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [
+         {
+           "matcher": "Bash",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "slopsentry hook || true",
+               "timeout": 30
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   `|| true` keeps Claude Code working if `slopsentry` isn't installed on a machine
+   where the settings file is shared.
+
+3. Restart Claude Code, then check it in `/hooks`. Asking Claude to run
+   `pip install reqeusts` should be blocked.
+
+If you use uv and don't want to install anything, use `"command": "uvx slopsentry hook || true"`
+instead. The first run downloads SlopSentry, so it's slower.
+
+When working on SlopSentry itself, point the hook at your checkout instead:
+`"\"$CLAUDE_PROJECT_DIR\"/.venv/bin/slopsentry hook || true"`.
 
 ### Known gaps
 
