@@ -5,8 +5,11 @@ a Python CLI that checks packages for **slopsquatting** (AI-hallucinated package
 malicious lookalikes) before they're installed.
 
 It contains no checking logic of its own. The `slopsentry` command runs
-`uvx slopsentry` and passes every argument, stdin, stdout and the exit code straight
-through, so it behaves exactly like the Python tool.
+`uvx slopsentry@<version>` and passes every argument, stdin, stdout and the exit code
+straight through, so it behaves exactly like the Python tool.
+
+The Python version is pinned to this package's version: `slopsentry@0.1.0` on npm always
+runs `slopsentry==0.1.0` from PyPI, never whatever uv happens to have cached.
 
 > **Alpha (0.1.0):** SlopSentry only checks Python package installs from PyPI. It doesn't
 > check npm packages yet, despite being installable from npm.

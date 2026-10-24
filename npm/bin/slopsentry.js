@@ -4,8 +4,12 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { version } = require("../package.json");
 
-const child = spawn("uvx", ["slopsentry", ...process.argv.slice(2)], { stdio: "inherit" });
+// Pinned to the npm package version, so each npm release runs the matching PyPI release.
+const pkg = `slopsentry@${version}`;
+
+const child = spawn("uvx", [pkg, ...process.argv.slice(2)], { stdio: "inherit" });
 
 child.on("error", (err) => {
   if (err.code === "ENOENT") {
