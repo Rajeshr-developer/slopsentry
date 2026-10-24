@@ -1,0 +1,33 @@
+{
+  "name": "slopsentry",
+  "version": "0.1.0",
+  "description": "Check packages for slopsquatting before they are installed. npm wrapper for the Python SlopSentry CLI (runs it with uvx).",
+  "keywords": [
+    "security",
+    "supply-chain",
+    "slopsquatting",
+    "typosquatting",
+    "claude-code"
+  ],
+  "homepage": "https://github.com/Rajeshr-developer/slopsentry",
+  "bugs": {
+    "url": "https://github.com/Rajeshr-developer/slopsentry/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rajeshr-developer/slopsentry.git",
+    "directory": "npm"
+  },
+  "license": "MIT",
+  "author": "Rajeshr-developer <rajeshr.developer@gmail.com>",
+  "bin": {
+    "slopsentry": "bin/slopsentry.js"
+  },
+  "files": [
+    "bin/",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
