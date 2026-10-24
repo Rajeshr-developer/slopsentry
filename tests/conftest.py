@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -32,7 +32,7 @@ def established(name: str) -> dict:
 
 def fresh(name: str) -> dict:
     """Registered days ago: one release, no links. Dated relative to now."""
-    uploaded = (datetime.now(UTC) - timedelta(days=5)).isoformat()
+    uploaded = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
     return {
         "info": {"name": name, "home_page": "", "project_urls": None},
         "releases": {"0.0.1": [{"upload_time_iso_8601": uploaded}]},

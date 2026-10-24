@@ -3,7 +3,7 @@ CLI that checks packages for slopsquatting (AI-hallucinated or
 malicious lookalike packages) before they are installed.
 
 ## Stack
-Python 3.12, Typer (CLI), httpx (async registry calls),
+Python 3.10+, Typer (CLI), httpx (async registry calls),
 rich (--explain output), pytest, ruff
 
 ## Structure

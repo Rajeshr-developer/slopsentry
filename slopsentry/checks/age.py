@@ -1,6 +1,6 @@
 """Flag packages that look freshly registered: young, few releases, no project links."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from slopsentry.checks import CheckResult
@@ -14,9 +14,16 @@ FEW_RELEASES_POINTS = 20
 NO_LINKS_POINTS = 20
 
 
+def _parse_time(value: str) -> datetime:
+    # Python 3.10's fromisoformat doesn't accept the "Z" suffix PyPI uses.
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
 def _upload_times(project: dict[str, Any]) -> list[datetime]:
     return [
-        datetime.fromisoformat(f["upload_time_iso_8601"])
+        _parse_time(f["upload_time_iso_8601"])
         for files in (project.get("releases") or {}).values()
         for f in files
         if f.get("upload_time_iso_8601")
@@ -38,7 +45,7 @@ async def check_age(name: str, client: PyPIClient, now: datetime | None = None) 
     if "releases" not in project:
         return ("skip", "release history unavailable", 0)
 
-    now = now or datetime.now(UTC)
+    now = now or datetime.now(timezone.utc)
     findings: list[str] = []
     points = 0
 

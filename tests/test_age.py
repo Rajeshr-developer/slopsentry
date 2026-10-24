@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from slopsentry.checks.age import check_age
 from tests.conftest import EXISTING, FRESH, MISSING, NO_HISTORY, UNREACHABLE
@@ -33,7 +33,8 @@ def test_fresh_package_warns_on_every_signal(make_client):
 
 def test_age_threshold_uses_now(make_client):
     # Shortly after its first release, an established package also counts as new.
-    status, detail, points = run(EXISTING, make_client(), now=datetime(2015, 3, 31, 12, tzinfo=UTC))
+    now = datetime(2015, 3, 31, 12, tzinfo=timezone.utc)
+    status, detail, points = run(EXISTING, make_client(), now=now)
     assert status == "warn"
     assert detail == "first release 30 days ago"
     assert points == 40

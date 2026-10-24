@@ -12,7 +12,7 @@ import shlex
 import sys
 import traceback
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -298,7 +298,7 @@ def log_path() -> Path:
 
 def log_exception(debug: bool) -> None:
     """Record the exception being handled. Never raises: the hook must still allow."""
-    entry = f"[{datetime.now(UTC).isoformat()}] {traceback.format_exc()}"
+    entry = f"[{datetime.now(timezone.utc).isoformat()}] {traceback.format_exc()}"
     try:
         path = log_path()
         path.parent.mkdir(parents=True, exist_ok=True)
